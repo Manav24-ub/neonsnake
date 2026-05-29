@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Snake</title>
+    <style>
+        body {
+            background-color: #050505;
+            color: #fff;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .game-container {
+            text-align: center;
+            position: relative;
+        }
+
+        .neon-title {
+            color: #fff;
+            text-shadow:
+                0 0 5px #fff,
+                0 0 10px #fff,
+                0 0 20px #0ff,
+                0 0 40px #0ff,
+                0 0 80px #0ff;
+            margin-bottom: 5px;
+            letter-spacing: 2px;
+            font-size: 3rem;
+            margin-top: 0;
+            font-weight: bold;
+        }
+
+        .top-controls {
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .neon-select {
+            background: #000;
+            color: #0ff;
+            font-family: inherit;
+            font-size: 1.2rem;
+            border: 1px solid #0ff;
+            padding: 5px;
+            border-radius: 5px;
+            box-shadow: 0 0 5px #0ff, inset 0 0 5px #0ff;
+            outline: none;
+            cursor: pointer;
+            text-shadow: 0 0 5px #0ff;
+            font-weight: bold;
+        }
+
+        .neon-select option {
+            background: #000;
+            color: #0ff;
+            text-shadow: none;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            width: 400px;
+            max-width: 90vw;
+            margin: 0 auto 10px auto;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .neon-text {
+            letter-spacing: 1px;
+        }
+
+        .neon-text.blue { text-shadow: 0 0 5px #0ff, 0 0 15px #0ff; }
+        .neon-text.pink { text-shadow: 0 0 5px #f0f, 0 0 15px #f0f; }
+        
+        .neon-text.red { 
+            text-shadow: 0 0 10px #f00, 0 0 20px #f00, 0 0 40px #f00; 
+            font-size: 3rem;
+            margin-top: 0;
+        }
+
+        canvas {
+            background-color: #000;
+            border: 2px solid #0ff;
+            box-shadow: 0 0 15px #0ff, inset 0 0 15px #0ff;
+            border-radius: 5px;
+            max-width: 95vw;
+            max-height: 95vw;
+            touch-action: none;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 30px;
+            border: 2px solid #f00;
+            box-shadow: 0 0 25px #f00, inset 0 0 10px #f00;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            width: 250px;
+        }
+
+        .neon-btn {
+            background: transparent;
+            color: #fff;
+            font-size: 1.5rem;
+            font-family: inherit;
+            border: 2px solid #0ff;
+            padding: 10px 20px;
+            cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 0 0 10px #0ff, inset 0 0 10px #0ff;
+            text-shadow: 0 0 5px #fff, 0 0 10px #0ff;
+            transition: 0.2s;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        .neon-btn:hover {
+            background: #0ff;
+            color: #000;
+            box-shadow: 0 0 20px #0ff, inset 0 0 20px #0ff;
+            text-shadow: none;
+        }
+
+        footer {
+            position: absolute;
+            bottom: 15px;
+            width: 100%;
+            text-align: center;
+            font-size: 1.2rem;
+            color: #fff;
+            text-shadow: 0 0 5px #f0f, 0 0 15px #f0f;
+            letter-spacing: 2px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <h1 class="neon-title">NEON SNAKE</h1>
+        
+        <div class="top-controls">
+            <label for="levelSelect" class="neon-text pink">Start Level: </label>
+            <select id="levelSelect" class="neon-select" onchange="forceLevelChange()">
+                <option value="1">1 (Normal)</option>
+                <option value="2">2 (Fast)</option>
+                <option value="3">3 (Faster)</option>
+                <option value="4">4 (Very Fast)</option>
+                <option value="5">5 (Insane)</option>
+            </select>
+        </div>
+
+        <div class="stats">
+            <span id="score" class="neon-text blue">Score: 0</span>
+            <span id="level" class="neon-text pink">Level: 1</span>
+        </div>
+        
+        <canvas id="gameCanvas" width="400" height="400"></canvas>
+        
+        <div id="gameOver" class="hidden">
+            <h2 class="neon-text red">GAME OVER</h2>
+            <button onclick="resetGame()" class="neon-btn">RETRY</button>
+        </div>
+    </div>
+
+    <footer>Written By Manav</footer>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const levelSelect = document.getElementById("levelSelect");
+
+        const gridSize = 20;
+        const tileCount = canvas.width / gridSize;
+
+        // Game state variables
+        let snake = [{ x: 10, y: 10 }];
+        let food = { x: 5, y: 5 };
+        let dx = 0;
+        let dy = 0;
+        let score = 0;
+        let level = 1;
+        let speed = 150;
+        let gameLoopTimeout;
+        let changingDirection = false;
+        let gameStarted = false;
+
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        // The 5 levels - auto-leveler logic is disabled
+        const levels = [
+            { speed: 150 },
+            { speed: 120 },
+            { speed: 90 },
+            { speed: 65 },
+            { speed: 45 }
+        ];
+
+        document.addEventListener("keydown", changeDirection);
+        
+        canvas.addEventListener('touchstart', function(e) {
+            touchStartX = e.changedTouches[0].screenX;
+            touchStartY = e.changedTouches[0].screenY;
+        }, {passive: false});
+
+        canvas.addEventListener('touchend', function(e) {
+            let touchEndX = e.changedTouches[0].screenX;
+            let touchEndY = e.changedTouches[0].screenY;
+            handleSwipe(touchStartX, touchStartY, touchEndX, touchEndY);
+        }, {passive: false});
+
+        function forceLevelChange() {
+            resetGame();
+        }
+
+        function main() {
+            if (hasGameEnded()) {
+                document.getElementById("gameOver").classList.remove("hidden");
+                return;
+            }
+
+            changingDirection = false;
+            gameLoopTimeout = setTimeout(function onTick() {
+                clearCanvas();
+                drawFood();
+                advanceSnake();
+                drawSnake();
+                main();
+            }, speed);
+        }
+
+        function clearCanvas() {
+            ctx.fillStyle = "black";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function drawSnake() {
+            snake.forEach((part, index) => {
+                let px = part.x * gridSize;
+                let py = part.y * gridSize;
+
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = "#00ffff";
+
+                if (index === 0) {
+                    ctx.fillStyle = "#00ffff"; 
+                    ctx.beginPath();
+                    
+                    let dirX = dx === 0 && dy === 0 ? 1 : dx;
+                    let dirY = dy;
+
+                    if (dirX === 1) { 
+                        ctx.moveTo(px + gridSize, py + gridSize / 2);
+                        ctx.lineTo(px, py + gridSize);
+                        ctx.lineTo(px, py);
+                    } else if (dirX === -1) { 
+                        ctx.moveTo(px, py + gridSize / 2);
+                        ctx.lineTo(px + gridSize, py + gridSize);
+                        ctx.lineTo(px + gridSize, py);
+                    } else if (dirY === 1) { 
+                        ctx.moveTo(px + gridSize / 2, py + gridSize);
+                        ctx.lineTo(px, py);
+                        ctx.lineTo(px + gridSize, py);
+                    } else if (dirY === -1) { 
+                        ctx.moveTo(px + gridSize / 2, py);
+                        ctx.lineTo(px, py + gridSize);
+                        ctx.lineTo(px + gridSize, py + gridSize);
+                    }
+                    
+                    ctx.fill();
+
+                } else {
+                    ctx.fillStyle = "#00cccc"; 
+                    ctx.fillRect(px + 1, py + 1, gridSize - 2, gridSize - 2);
+                }
+                
+                ctx.shadowBlur = 0; 
+            });
+        }
+
+        function drawFood() {
+            ctx.fillStyle = "#ff00ff";
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = "#ff00ff";
+            ctx.fillRect(food.x * gridSize + 1, food.y * gridSize + 1, gridSize - 2, gridSize - 2);
+            ctx.shadowBlur = 0;
+        }
+
+        function advanceSnake() {
+            const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+            snake.unshift(head);
+
+            const hasEatenFood = snake[0].x === food.x && snake[0].y === food.y;
+            
+            if (hasEatenFood) {
+                score++;
+                document.getElementById('score').innerText = `Score: ${score}`;
+                generateFood();
+            } else {
+                snake.pop();
+            }
+        }
+
+        function generateFood() {
+            food.x = Math.floor(Math.random() * tileCount);
+            food.y = Math.floor(Math.random() * tileCount);
+            
+            snake.forEach(function has_snake_eaten_food(part) {
+                const has_eaten = part.x == food.x && part.y == food.y;
+                if (has_eaten) generateFood();
+            });
+        }
+
+        function changeDirection(event) {
+            const LEFT_KEY = 37, RIGHT_KEY = 39, UP_KEY = 38, DOWN_KEY = 40;
+            const W_KEY = 87, A_KEY = 65, S_KEY = 83, D_KEY = 68;
+
+            if (!gameStarted && [LEFT_KEY, RIGHT_KEY, UP_KEY, DOWN_KEY, W_KEY, A_KEY, S_KEY, D_KEY].includes(event.keyCode)) {
+                gameStarted = true;
+                levelSelect.disabled = true; 
+                main();
+            }
+
+            if (changingDirection) return;
+
+            const keyPressed = event.keyCode;
+            const goingUp = dy === -1;
+            const goingDown = dy === 1;
+            const goingRight = dx === 1;
+            const goingLeft = dx === -1;
+
+            if ((keyPressed === LEFT_KEY || keyPressed === A_KEY) && !goingRight) { dx = -1; dy = 0; changingDirection = true; }
+            if ((keyPressed === UP_KEY || keyPressed === W_KEY) && !goingDown) { dx = 0; dy = -1; changingDirection = true; }
+            if ((keyPressed === RIGHT_KEY || keyPressed === D_KEY) && !goingLeft) { dx = 1; dy = 0; changingDirection = true; }
+            if ((keyPressed === DOWN_KEY || keyPressed === S_KEY) && !goingUp) { dx = 0; dy = 1; changingDirection = true; }
+        }
+
+        function handleSwipe(startX, startY, endX, endY) {
+            const dxSwipe = endX - startX;
+            const dySwipe = endY - startY;
+
+            if (Math.abs(dxSwipe) < 30 && Math.abs(dySwipe) < 30) return;
+
+            if (!gameStarted) {
+                gameStarted = true;
+                levelSelect.disabled = true; 
+                main();
+            }
+
+            if (changingDirection) return;
+
+            const goingUp = dy === -1;
+            const goingDown = dy === 1;
+            const goingRight = dx === 1;
+            const goingLeft = dx === -1;
+
+            if (Math.abs(dxSwipe) > Math.abs(dySwipe)) {
+                if (dxSwipe > 0 && !goingLeft) { dx = 1; dy = 0; changingDirection = true; }
+                else if (dxSwipe < 0 && !goingRight) { dx = -1; dy = 0; changingDirection = true; }
+            } else {
+                if (dySwipe > 0 && !goingUp) { dx = 0; dy = 1; changingDirection = true; }
+                else if (dySwipe < 0 && !goingDown) { dx = 0; dy = -1; changingDirection = true; }
+            }
+        }
+
+        function hasGameEnded() {
+            for (let i = 4; i < snake.length; i++) {
+                if (snake[i].x === snake[0].x && snake[i].y === snake[0].y) return true;
+            }
+
+            const hitLeftWall = snake[0].x < 0;
+            const hitRightWall = snake[0].x >= tileCount;
+            const hitToptWall = snake[0].y < 0;
+            const hitBottomWall = snake[0].y >= tileCount;
+
+            return hitLeftWall || hitRightWall || hitToptWall || hitBottomWall;
+        }
+
+        function resetGame() {
+            clearTimeout(gameLoopTimeout);
+            
+            snake = [{ x: 10, y: 10 }];
+            score = 0; 
+            dx = 0;
+            dy = 0;
+            gameStarted = false;
+            
+            level = parseInt(levelSelect.value);
+            speed = levels[level - 1].speed;
+            
+            levelSelect.disabled = false; 
+            document.getElementById('score').innerText = `Score: ${score}`;
+            document.getElementById('level').innerText = `Level: ${level}`;
+            document.getElementById("gameOver").classList.add("hidden");
+            
+            generateFood();
+            showStartScreen();
+        }
+
+        function showStartScreen() {
+            clearCanvas();
+            drawSnake();
+            drawFood();
+            
+            ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.fillStyle = "#00ffff";
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = "#00ffff";
+            ctx.font = 'bold 18px Courier New';
+            ctx.textAlign = "center";
+            ctx.fillText("PRESS ANY KEY OR SWIPE", canvas.width / 2, canvas.height / 2 - 10);
+            ctx.fillText("TO START MOVING", canvas.width / 2, canvas.height / 2 + 15);
+            ctx.shadowBlur = 0;
+            ctx.textAlign = "left"; 
+        }
+
+        // Initialize
+        resetGame();
+
+    </script>
+</body>
+</html>
